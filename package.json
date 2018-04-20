@@ -7,9 +7,9 @@
   "author": "asakusuma <asa.kusuma@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "serve": "nodemon dist/server/index.js",
-    "build": "tsc -p server/tsconfig.json && tsc -p client/sw/tsconfig.json",
-    "watch": "concurrently \"tsc -w -p server/tsconfig.json\" \"tsc -w -p client/sw/tsconfig.json\""
+    "serve": "nodemon server/dist/index.js",
+    "build": "tsc -p server/tsconfig.json",
+    "watch": "tsc -w -p server/tsconfig.json"
   },
   "dependencies": {
     "@types/express": "^4.11.1",

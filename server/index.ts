@@ -2,9 +2,13 @@ import express, { Request, Response } from "express";
 
 const app = express();
 
+/*
 app.get('/', (req: Request, res: Response) => {
   res.send('Hello worldz');
 });
+*/
+
+app.use('/', express.static('./client/static'));
 
 const EXPRESS_PORT = 3000;
 
