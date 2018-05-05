@@ -1,17 +1,7 @@
-import express from "express";
-
-const app = express();
-
-/*
-app.get('/', (req: Request, res: Response) => {
-  res.send('Hello worldz');
-});
-*/
-
-app.use('/', express.static('./client/static'));
+import boot from './server';
 
 const EXPRESS_PORT = 3000;
 
-app.listen(EXPRESS_PORT, () => {
+boot().listen(EXPRESS_PORT, () => {
   console.log(`App listening on port ${EXPRESS_PORT}`);
 });
