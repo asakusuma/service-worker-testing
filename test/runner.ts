@@ -114,7 +114,7 @@ export interface PageNavigateResult {
 };
 
 export interface NavigateResult extends PageNavigateResult {
-  body: Page.GetResourceContentReturn;
+  body: Network.GetResponseBodyReturn;
 }
 
 export class ApplicationEnvironment {
@@ -180,13 +180,9 @@ export class ApplicationEnvironment {
 
     const { networkResult, frame } = await navPromise;
 
-    const body = await this.page.getResourceContent({
-      frameId,
-      url
+    const body = await this.network.getResponseBody({
+      requestId: networkResult.requestId
     });
-
-    console.log(networkResult.response.fromServiceWorker);
-    console.log(body);
 
     return {
       networkResult,

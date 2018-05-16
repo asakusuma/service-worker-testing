@@ -78,7 +78,7 @@ describe('Service Worker', () => {
 
       const { body } = await app.navigate(url);
 
-      expect(body.content.indexOf('from-service-worker') > 0).to.be.true;
+      expect(body.body.indexOf('from-service-worker') > 0).to.be.true;
     });
   }).timeout(5000);
 });
