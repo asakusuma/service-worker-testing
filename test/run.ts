@@ -12,6 +12,10 @@ describe('Service Worker', () => {
   it('should have a version', async () => {
     await session.run(async (app: ApplicationEnvironment) => {
       await app.navigate();
+
+      await app.evaluate(function() {
+        return navigator.serviceWorker.register('/sw.js');
+      });
       await app.waitForServiceWorkerRegistration();
 
       const active = await app.swState.getActiveVersion();
@@ -22,6 +26,11 @@ describe('Service Worker', () => {
   it('should intercept basepage request and add meta tag', async () => {
     await session.run(async (app: ApplicationEnvironment) => {
       await app.navigate();
+
+      await app.evaluate(function() {
+        return navigator.serviceWorker.register('/sw.js');
+      });
+
       await app.waitForServiceWorkerRegistration();
 
       const { body, networkResult } = await app.navigate();

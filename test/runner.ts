@@ -1,4 +1,4 @@
-import { createSession, IDebuggingProtocolClient } from 'chrome-debugging-client';
+import { createSession, IDebuggingProtocolClient, IAPIClient } from 'chrome-debugging-client';
 import {
   Page,
   ServiceWorker,
@@ -128,8 +128,9 @@ export class ApplicationEnvironment {
 
   private debuggerClient: IDebuggingProtocolClient;
   private frameStore: FrameStore;
+  private client: IAPIClient;
 
-  private constructor(debuggerClient: IDebuggingProtocolClient, rootUrl: string) {
+  private constructor(debuggerClient: IDebuggingProtocolClient, client: IAPIClient, rootUrl: string) {
     this.rootUrl = rootUrl;
     this.debuggerClient = debuggerClient;
     this.serviceWorker = new ServiceWorker(debuggerClient);
@@ -138,6 +139,7 @@ export class ApplicationEnvironment {
     this.cacheStorage = new CacheStorage(debuggerClient);
     this.network = new Network(debuggerClient);
     this.swState = new ServiceWorkerState(this.serviceWorker);
+    this.client = client;
 
     this.frameStore = new FrameStore();
 
@@ -145,8 +147,8 @@ export class ApplicationEnvironment {
     this.page.frameNavigated = this.frameStore.onNavigationComplete.bind(this.frameStore);
   }
 
-  public static async build(debuggerClient: IDebuggingProtocolClient, rootUrl: string) {
-    const instance = new ApplicationEnvironment(debuggerClient, rootUrl);
+  public static async build(debuggerClient: IDebuggingProtocolClient, client: IAPIClient, rootUrl: string) {
+    const instance = new ApplicationEnvironment(debuggerClient, client, rootUrl);
     await Promise.all([
       instance.page.enable(),
       instance.serviceWorker.enable(),
@@ -177,6 +179,37 @@ export class ApplicationEnvironment {
 
   public evaluate<T>(toEvaluate: () => T) {
     return runtimeEvaluate(this.debuggerClient, toEvaluate);
+  }
+
+  // TODO: Open new client for each tab
+  public async newTab() {
+    const { id } = await this.client.newTab();
+    return id;
+  }
+
+  public openTabById(id: string) {
+    return this.client.activateTab(id);
+  }
+
+  public async openAndActivateTab() {
+    await this.newTab();
+    await this.openLastTab();
+  }
+
+  public async openTabByIndex(index: number) {
+    const tabs = await this.client.listTabs();
+    const rawIndex = tabs.length - 1 - index;
+    if (rawIndex >= 0) {
+      return this.openTabById(tabs[rawIndex].id);
+    }
+  }
+
+  public async openLastTab() {
+    const tabs = await this.client.listTabs();
+    if (tabs.length > 0) {
+      const last = tabs[0];
+      return this.openTabById(last.id);
+    }
   }
 
   public async navigate(url?: string): Promise<NavigateResult> {
@@ -231,7 +264,7 @@ export class TestSession<S extends TestServer = TestServer> {
       await client.activateTab(tab.id);
 
       const dp = await session.openDebuggingProtocol(tab.webSocketDebuggerUrl || '');
-      const appEnv = await ApplicationEnvironment.build(dp, server.rootUrl);
+      const appEnv = await ApplicationEnvironment.build(dp, client, server.rootUrl);
       await test(appEnv);
     });
   }
