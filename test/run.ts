@@ -30,19 +30,28 @@ function createServer(): Promise<TestServer> {
   });
 }
 
+function wait(time: number) {
+  return new Promise((r) => {
+    setTimeout(r, time);
+  });
+}
+
 const session = new TestSession(createServer());
 
 after(async () => {
   await session.close();
 });
 
-describe('Service Worker Core', () => {
+describe('Service Worker', () => {
+  /*
   it('should have a version', async () => {
     await session.run(async (app: ApplicationEnvironment) => {
       await app.page.navigate({
         url: app.rootUrl
       });
       await app.evaluate(function() {
+        // TODO: Figure out how to evaluate browser code without having to add the 'dom'
+        // typescript library in tsconfig
         return navigator.serviceWorker.ready.then(() => {
           return navigator.serviceWorker.getRegistration();
         });
@@ -51,30 +60,25 @@ describe('Service Worker Core', () => {
       expect(active.versionId).to.equal('0');
     });
   });
+  */
+
+  it('should add a meta tag', async () => {
+    await session.run(async (app: ApplicationEnvironment) => {
+      const url = app.rootUrl;
+      await wait(1);
+      await app.navigate(url);
+
+      await app.evaluate(function() {
+        return navigator.serviceWorker.ready.then(() => {
+          return navigator.serviceWorker.getRegistration();
+        });
+      });
+
+      await wait(1000);
+
+      const { body } = await app.navigate(url);
+
+      expect(body.content.indexOf('from-service-worker') > 0).to.be.true;
+    });
+  }).timeout(5000);
 });
-
-/*
-const { frameId, errorText } = await page.navigate({
-  url
-});
-
-if (errorText) {
-  throw new Error(`Failed to load ${url}: ${errorText}`);
-}
-
-const result = await page.getResourceContent({
-  frameId,
-  url
-});
-
-console.log(result.content);
-
-// Wait till the service worker is ready
-await runtimeEvaluate(debuggerClient, function() {
-  return navigator.serviceWorker.ready.then(() => {
-    return navigator.serviceWorker.getRegistration();
-  });
-});
-
-const active = await serviceWorkerState.getActiveVersion();
-*/

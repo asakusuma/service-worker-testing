@@ -50,44 +50,150 @@ export interface EvaluateFunction {
   <T>(toEvaluate: () => T): Promise<T>;
 }
 
-
-export interface ApplicationEnvironment {
-  swState: ServiceWorkerState;
-  page: Page;
-  cacheStorage: CacheStorage;
-  indexedDB: IndexedDB;
-  network: Network;
-  serviceWorker: ServiceWorker;
-  rootUrl: string;
-  evaluate: EvaluateFunction;
+class FrameNavigation {
+  private response: Network.ResponseReceivedParameters;
+  private resolve: (res: PageNavigateResult) => void;
+  private promise: Promise<PageNavigateResult>;
+  constructor() {
+    this.promise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Response timeout'));
+      }, 10000);
+      this.resolve = (res) => {
+        clearTimeout(timeout);
+        resolve(res);
+      };
+    });
+  }
+  onNetworkResponse(res: Network.ResponseReceivedParameters) {
+    this.response = res;
+  }
+  onNavigationComplete({ frame }: Page.FrameNavigatedParameters) {
+    this.resolve({
+      frame,
+      networkResult: this.response
+    });
+  }
+  getPromise(): Promise<PageNavigateResult> {
+    return this.promise;
+  }
 }
 
-async function buildEnv(debuggerClient: IDebuggingProtocolClient, rootUrl: string): Promise<ApplicationEnvironment> {
-  const serviceWorker = new ServiceWorker(debuggerClient);
-  const page = new Page(debuggerClient);
-  const indexedDB = new IndexedDB(debuggerClient);
-  const cacheStorage = new CacheStorage(debuggerClient);
-  const network = new Network(debuggerClient);
-  await Promise.all([
-    page.enable(),
-    serviceWorker.enable(),
-    indexedDB.enable(),
-    network.enable({})
-  ]);
-  const swState = new ServiceWorkerState(serviceWorker);
-
-  return {
-    rootUrl,
-    swState,
-    page,
-    serviceWorker,
-    network,
-    indexedDB,
-    cacheStorage,
-    evaluate: <T>(toEvaluate: () => T) => {
-      return runtimeEvaluate(debuggerClient, toEvaluate);
+class FrameStore {
+  private frames: { [frameId: string]: FrameNavigation };
+  
+  constructor() {
+    this.frames = {};
+  }
+  start(frameId: string) {
+    const nav = new FrameNavigation();
+    this.frames[frameId] = nav;
+    return nav.getPromise();
+  }
+  onNetworkResponse(res: Network.ResponseReceivedParameters) {
+    if (res.frameId) {
+      const nav = this.frames[res.frameId];
+      if (nav) {
+        nav.onNetworkResponse(res);
+      }
+    } else {
+      throw new Error('Received network response without frameId');
     }
-  };
+  }
+  onNavigationComplete(result: Page.FrameNavigatedParameters) {
+    const nav = this.frames[result.frame.id];
+    if (nav) {
+      nav.onNavigationComplete(result);
+    }
+  }
+}
+
+export interface PageNavigateResult {
+  networkResult: Network.ResponseReceivedParameters;
+  frame: Page.Frame;
+};
+
+export interface NavigateResult extends PageNavigateResult {
+  body: Page.GetResourceContentReturn;
+}
+
+export class ApplicationEnvironment {
+  public swState: ServiceWorkerState;
+  public page: Page;
+  public cacheStorage: CacheStorage;
+  public indexedDB: IndexedDB;
+  public network: Network;
+  public serviceWorker: ServiceWorker;
+  public rootUrl: string;
+
+  private debuggerClient: IDebuggingProtocolClient;
+  private frameStore: FrameStore;
+
+  private constructor(debuggerClient: IDebuggingProtocolClient, rootUrl: string) {
+    this.rootUrl = rootUrl;
+    this.debuggerClient = debuggerClient;
+    this.serviceWorker = new ServiceWorker(debuggerClient);
+    this.page = new Page(debuggerClient);
+    this.indexedDB = new IndexedDB(debuggerClient);
+    this.cacheStorage = new CacheStorage(debuggerClient);
+    this.network = new Network(debuggerClient);
+    this.swState = new ServiceWorkerState(this.serviceWorker);
+
+    this.frameStore = new FrameStore();
+
+    this.network.responseReceived = this.frameStore.onNetworkResponse.bind(this.frameStore);
+    this.page.frameNavigated = this.frameStore.onNavigationComplete.bind(this.frameStore);
+  }
+
+  public static async build(debuggerClient: IDebuggingProtocolClient, rootUrl: string) {
+    const instance = new ApplicationEnvironment(debuggerClient, rootUrl);
+    await Promise.all([
+      instance.page.enable(),
+      instance.serviceWorker.enable(),
+      instance.indexedDB.enable(),
+      instance.network.enable({})
+    ]);
+    return instance;
+  }
+
+  public async close() {
+    await Promise.all([
+      this.page.disable(),
+      this.serviceWorker.disable(),
+      this.indexedDB.disable(),
+      this.network.disable()
+    ]);
+  }
+
+  public evaluate<T>(toEvaluate: () => T) {
+    return runtimeEvaluate(this.debuggerClient, toEvaluate);
+  }
+
+  public async navigate(url: string): Promise<NavigateResult> {
+    url = url || this.rootUrl;
+
+    const tree = await this.page.getFrameTree();
+    const frameId = tree.frameTree.frame.id;
+
+    const navPromise = this.frameStore.start(frameId);
+    this.page.navigate({ url });
+
+    const { networkResult, frame } = await navPromise;
+
+    const body = await this.page.getResourceContent({
+      frameId,
+      url
+    });
+
+    console.log(networkResult.response.fromServiceWorker);
+    console.log(body);
+
+    return {
+      networkResult,
+      frame,
+      body
+    };
+  }
 }
 
 export type TestFunction = (appEnv: ApplicationEnvironment) => Promise<void>;
@@ -119,7 +225,7 @@ export class TestSession<S extends TestServer = TestServer> {
       await client.activateTab(tab.id);
 
       const dp = await session.openDebuggingProtocol(tab.webSocketDebuggerUrl || '');
-      const appEnv = await buildEnv(dp, server.rootUrl);
+      const appEnv = await ApplicationEnvironment.build(dp, server.rootUrl);
       await test(appEnv);
     });
   }
