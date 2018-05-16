@@ -165,6 +165,16 @@ export class ApplicationEnvironment {
     ]);
   }
 
+  public waitForServiceWorkerRegistration() {
+    return this.evaluate(function() {
+      // TODO: Figure out how to evaluate browser code without having to add the 'dom'
+      // typescript library in tsconfig
+      return navigator.serviceWorker.ready.then(() => {
+        return navigator.serviceWorker.getRegistration();
+      });
+    });
+  }
+
   public evaluate<T>(toEvaluate: () => T) {
     return runtimeEvaluate(this.debuggerClient, toEvaluate);
   }
