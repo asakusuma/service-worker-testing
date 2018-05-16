@@ -1,6 +1,6 @@
 import { expect } from 'chai';
-import { TestSession, ApplicationEnvironment } from './runner';
-import { createServer } from './utils';
+import { TestSession, ApplicationEnvironment } from './framework/runner';
+import { createServer } from './server';
 
 const session = new TestSession(createServer());
 
