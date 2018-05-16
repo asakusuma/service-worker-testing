@@ -169,7 +169,7 @@ export class ApplicationEnvironment {
     return runtimeEvaluate(this.debuggerClient, toEvaluate);
   }
 
-  public async navigate(url: string): Promise<NavigateResult> {
+  public async navigate(url?: string): Promise<NavigateResult> {
     url = url || this.rootUrl;
 
     const tree = await this.page.getFrameTree();
