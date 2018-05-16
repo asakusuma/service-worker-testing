@@ -1,4 +1,4 @@
-import { TestServer } from './framework/runner';
+import { TestServer } from './framework/test-server';
 
 import { Server } from 'http';
 import boot from '../server/server';
