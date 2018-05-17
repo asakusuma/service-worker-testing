@@ -1,10 +1,8 @@
 import { createSession } from 'chrome-debugging-client';
 import { ApplicationEnvironment } from "./app-env";
-import { TestServer } from "./test-server";
+import { TestServerApi } from "./test-server-api";
 
-export type TestFunction = (appEnv: ApplicationEnvironment) => Promise<void>;
-
-export class TestSession<S extends TestServer = TestServer> {
+export class TestSession<S extends TestServerApi = TestServerApi> {
   public testServerPromise: Promise<S>;
   // private securityOrigin: string = 'http://localhost'; // TODO: make this dynamic
   constructor(testServerPromise: Promise<S>) {
@@ -15,7 +13,7 @@ export class TestSession<S extends TestServer = TestServer> {
     return server.close();
   }
 
-  private async runDebuggingSession(test: TestFunction, server: S) {
+  private async runDebuggingSession(test: (appEnv: ApplicationEnvironment<S>) => Promise<void>, server: S) {
     return createSession(async (session) => {
       const browser = await session.spawnBrowser('exact', {
         executablePath: '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome',
@@ -30,7 +28,7 @@ export class TestSession<S extends TestServer = TestServer> {
     });
   }
 
-  public async run(test: TestFunction) {
+  public async run(test: (appEnv: ApplicationEnvironment<S>) => Promise<void>) {
     const server = await this.testServerPromise;
     await this.runDebuggingSession(test, server);
     await server.reset();

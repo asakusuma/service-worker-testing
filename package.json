@@ -7,7 +7,7 @@
   "author": "asakusuma <asa.kusuma@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "serve": "nodemon server/dist/index.js",
+    "serve": "tsc -p server/tsconfig.json && nodemon server/dist/index.js",
     "build": "tsc -p server/tsconfig.json && tsc -p test/tsconfig.json",
     "watch": "concurrently \"tsc -w -p server/tsconfig.json\" \"tsc -w -p test/tsconfig.json\"",
     "lint": "tslint --project test/",

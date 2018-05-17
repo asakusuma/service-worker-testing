@@ -1,3 +1,4 @@
+const version = '%VERSION%';
 self.addEventListener('install', (e) => {
   e.waitUntil(self.skipWaiting());
 });

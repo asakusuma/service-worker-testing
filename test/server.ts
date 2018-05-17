@@ -1,14 +1,17 @@
-import { TestServer } from './framework/test-server';
-
 import { Server } from 'http';
-import boot from '../server/server';
+import boot, { IServerApi } from '../server/server';
 
-export class ExpressTestServer implements TestServer {
+export class ExpressTestServer implements IServerApi {
   public rootUrl: string;
   private server: Server;
-  constructor(server: Server, port: number) {
+  private version: number;
+  constructor() {
+    this.version = 0;
+  }
+  attach(server: Server, port: number) {
     this.server = server;
     this.rootUrl = `http://localhost:${port}`;
+    return this;
   }
   close() {
     this.server.close();
@@ -16,15 +19,24 @@ export class ExpressTestServer implements TestServer {
   reset() {
     return Promise.resolve();
   }
+
+  incrementVersion() {
+    this.version++;
+  }
+
+  getWorkerVersion() {
+    return String(this.version);
+  }
 }
 
-export function createServer(): Promise<TestServer> {
+export function createServer(): Promise<IServerApi> {
   const EXPRESS_PORT = 5000;
-  const server = boot();
+  const serverApi = new ExpressTestServer();
+  const server = boot(serverApi);
 
   return new Promise((resolve) => {
     const handle = server.listen(EXPRESS_PORT, () => {
-      resolve(new ExpressTestServer(handle, EXPRESS_PORT));
+      resolve(serverApi.attach(handle, EXPRESS_PORT));
     });
   });
 }

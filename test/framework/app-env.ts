@@ -1,8 +1,8 @@
 import { IAPIClient, ISession, ITabResponse } from 'chrome-debugging-client';
 import { ClientEnvironment } from './models/client';
-import { TestServer } from './test-server';
+import { TestServerApi } from './test-server-api';
 
-export class ApplicationEnvironment<S extends TestServer = TestServer> {
+export class ApplicationEnvironment<S extends TestServerApi = TestServerApi> {
   private client: IAPIClient;
   private session: ISession;
   private testServer: S;
@@ -17,7 +17,7 @@ export class ApplicationEnvironment<S extends TestServer = TestServer> {
     this.tabIdToClientEnv = {};
   }
 
-  public static async build<S extends TestServer = TestServer>(client: IAPIClient, session: ISession, testServer: S) {
+  public static async build<S extends TestServerApi = TestServerApi>(client: IAPIClient, session: ISession, testServer: S) {
     const tabs = await client.listTabs();
     const initialTab = tabs[0];
 
@@ -50,8 +50,15 @@ export class ApplicationEnvironment<S extends TestServer = TestServer> {
     return this.getActiveTabClient();
   }
 
-  public async openTabByIndex(index: number) {
+  private async getTabs() {
     const tabs = await this.client.listTabs();
+    return tabs.filter(({ type }) => {
+      return type === 'page';
+    });
+  }
+
+  public async openTabByIndex(index: number) {
+    const tabs = await this.getTabs();
     const rawIndex = tabs.length - 1 - index;
     if (rawIndex >= 0) {
       return this.openTabById(tabs[rawIndex].id);
@@ -59,7 +66,7 @@ export class ApplicationEnvironment<S extends TestServer = TestServer> {
   }
 
   public async openLastTab() {
-    const tabs = await this.client.listTabs();
+    const tabs = await this.getTabs();
     if (tabs.length > 0) {
       const last = tabs[0];
       return this.openTabById(last.id);

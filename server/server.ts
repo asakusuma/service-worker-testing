@@ -1,11 +1,27 @@
 import express, { Express } from 'express';
+import { readFileSync } from 'fs';
+import { TestServerApi } from './../test/framework/test-server-api';
 
 export {
   Express
 };
 
-export default function boot(): Express {
+export interface IServerApi extends TestServerApi {
+  getWorkerVersion: () => string;
+  incrementVersion: () => void;
+}
+
+export default function boot(serverApi: IServerApi): Express {
   const app = express();
-  app.use('/', express.static('./client/static'));
+
+  const swFile = readFileSync('./client/static/sw.js', 'utf8');
+
+  app.get('/sw.js', (req, res) => {
+    res.contentType('text/javascript');
+    res.send(swFile.replace('%VERSION%', serverApi.getWorkerVersion()));
+  });
+
+  app.use('/', express.static('./client/static/'));
+
   return app;
 }
