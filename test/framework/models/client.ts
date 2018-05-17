@@ -83,8 +83,8 @@ export class ClientEnvironment {
     return runtimeEvaluate(this.debuggerClient, toEvaluate);
   }
 
-  public async navigate(url?: string): Promise<NavigateResult> {
-    url = url || this.rootUrl;
+  public async navigate(targetUrl?: string): Promise<NavigateResult> {
+    const url = targetUrl ? this.getAbsoluteUrl(targetUrl) : this.rootUrl;
 
     const tree = await this.page.getFrameTree();
     const frameId = tree.frameTree.frame.id;
@@ -104,4 +104,22 @@ export class ClientEnvironment {
       body
     };
   }
+
+  private getAbsoluteUrl(targetUrl: string) {
+    if (isAbsolutePath(targetUrl)) {
+      return targetUrl;
+    }
+    return this.rootUrl + targetUrl;
+  }
+}
+
+function isAbsolutePath(url: string) {
+  if (url.length < 8 || url.substr(0,1) === '/') {
+    return false;
+  } else if (url.substr(0,7) === 'http://') {
+    return true;
+  } else if (url.substr(0,8) === 'https://') {
+    return true;
+  }
+  return false;
 }
