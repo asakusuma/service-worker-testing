@@ -43,7 +43,7 @@ describe('Service Worker', () => {
     });
   });
 
-  it('should intercept basepage request and add meta tag', async () => {
+  it('should not intercept basepage request for tabs that were created before the worker was registered', async () => {
     await session.run(async (app: ApplicationEnvironment) => {
       const client1 = app.getActiveClient();
       await client1.navigate();
