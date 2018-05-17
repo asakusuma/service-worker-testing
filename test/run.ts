@@ -96,6 +96,20 @@ describe('Service Worker', () => {
 
       const active2 = await client.swState.getActiveVersion();
       expect(active2.versionId).to.equal('0');
+
+      const client2 = await app.openAndActivateTab();
+
+      await client2.navigate();
+
+      await client2.evaluate(function() {
+        return navigator.serviceWorker.register('/sw.js');
+      });
+
+      await client2.waitForServiceWorkerRegistration();
+
+      const active3 = await client2.swState.getActiveVersion();
+      // Assert that version was actually incremented
+      expect(active3.versionId).to.equal('1');
     });
   });
 });
