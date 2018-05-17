@@ -15,7 +15,7 @@ export class TestSession<S extends TestServer = TestServer> {
     return server.close();
   }
 
-  private async runDebuggingSession(test: TestFunction, server: TestServer) {
+  private async runDebuggingSession(test: TestFunction, server: S) {
     return createSession(async (session) => {
       const browser = await session.spawnBrowser('exact', {
         executablePath: '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome',
@@ -25,7 +25,7 @@ export class TestSession<S extends TestServer = TestServer> {
 
       const apiClient = session.createAPIClient('localhost', browser.remoteDebuggingPort);
 
-      const appEnv = await ApplicationEnvironment.build(apiClient, session, server.rootUrl);
+      const appEnv = await ApplicationEnvironment.build(apiClient, session, server);
       await test(appEnv);
     });
   }

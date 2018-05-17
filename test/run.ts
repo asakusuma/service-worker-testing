@@ -12,7 +12,7 @@ after(async () => {
 describe('Service Worker', () => {
   it('should have a version', async () => {
     await session.run(async (app: ApplicationEnvironment) => {
-      const client = app.getActiveClient();
+      const client = app.getActiveTabClient();
       await client.navigate();
 
       await client.evaluate(function() {
@@ -27,7 +27,7 @@ describe('Service Worker', () => {
 
   it('should intercept basepage request and add meta tag', async () => {
     await session.run(async (app: ApplicationEnvironment) => {
-      const client = app.getActiveClient();
+      const client = app.getActiveTabClient();
       await client.navigate();
 
       await client.evaluate(function() {
@@ -45,7 +45,7 @@ describe('Service Worker', () => {
 
   it('should not intercept basepage request for tabs that were created before the worker was registered', async () => {
     await session.run(async (app: ApplicationEnvironment) => {
-      const client1 = app.getActiveClient();
+      const client1 = app.getActiveTabClient();
       await client1.navigate();
 
       const client2 = await app.openAndActivateTab();

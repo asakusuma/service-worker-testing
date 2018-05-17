@@ -1,48 +1,41 @@
 import { IAPIClient, ISession, ITabResponse } from 'chrome-debugging-client';
 import { ClientEnvironment } from './models/client';
+import { TestServer } from './test-server';
 
-export class ApplicationEnvironment {
+export class ApplicationEnvironment<S extends TestServer = TestServer> {
   private client: IAPIClient;
   private session: ISession;
-  private testAppUrl: string;
+  private testServer: S;
   private activeClient: ClientEnvironment;
 
   private tabIdToClientEnv: {[tabId: string]: ClientEnvironment};
 
-  private constructor(client: IAPIClient, session: ISession, testAppUrl: string) {
+  private constructor(client: IAPIClient, session: ISession, testServer: S) {
     this.client = client;
     this.session = session;
-    this.testAppUrl = testAppUrl;
+    this.testServer = testServer;
     this.tabIdToClientEnv = {};
   }
 
-  public static async build(client: IAPIClient, session: ISession, testAppUrl: string) {
+  public static async build<S extends TestServer = TestServer>(client: IAPIClient, session: ISession, testServer: S) {
     const tabs = await client.listTabs();
     const initialTab = tabs[0];
 
-    const appEnv = new ApplicationEnvironment(client, session, testAppUrl);
+    const appEnv = new ApplicationEnvironment(client, session, testServer);
     await appEnv.buildClientEnv(initialTab);
     await appEnv.activateTab(initialTab.id);
     return appEnv;
   }
 
-  public getActiveClient() {
+  public getActiveTabClient(): ClientEnvironment {
     return this.activeClient;
   }
 
-  private async buildClientEnv(tab: ITabResponse) {
-    const dp = await this.session.openDebuggingProtocol(tab.webSocketDebuggerUrl || '');
-    const client = await ClientEnvironment.build(dp, this.testAppUrl);
-    this.tabIdToClientEnv[tab.id] = client;
-    return client;
+  public getTestServer(): S {
+    return this.testServer;
   }
 
-  private async activateTab(tabId: string) {
-    await this.client.activateTab(tabId);
-    this.activeClient = this.tabIdToClientEnv[tabId];
-  }
-
-  public async newTab() {
+  public async newTab(): Promise<ClientEnvironment> {
     const tab = await this.client.newTab();
     return this.buildClientEnv(tab);
   }
@@ -54,7 +47,7 @@ export class ApplicationEnvironment {
   public async openAndActivateTab() {
     await this.newTab();
     await this.openLastTab();
-    return this.getActiveClient();
+    return this.getActiveTabClient();
   }
 
   public async openTabByIndex(index: number) {
@@ -71,6 +64,18 @@ export class ApplicationEnvironment {
       const last = tabs[0];
       return this.openTabById(last.id);
     }
+  }
+
+  private async buildClientEnv(tab: ITabResponse): Promise<ClientEnvironment> {
+    const dp = await this.session.openDebuggingProtocol(tab.webSocketDebuggerUrl || '');
+    const client = await ClientEnvironment.build(dp, this.testServer.rootUrl);
+    this.tabIdToClientEnv[tab.id] = client;
+    return client;
+  }
+
+  private async activateTab(tabId: string) {
+    await this.client.activateTab(tabId);
+    this.activeClient = this.tabIdToClientEnv[tabId];
   }
 }
 
