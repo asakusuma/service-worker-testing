@@ -17,21 +17,15 @@ export class TestSession<S extends TestServer = TestServer> {
 
   private async runDebuggingSession(test: TestFunction, server: TestServer) {
     return createSession(async (session) => {
-      const process = await session.spawnBrowser('exact', {
+      const browser = await session.spawnBrowser('exact', {
         executablePath: '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome',
         additionalArguments: ['--headless', '--disable-gpu', '--hide-scrollbars', '--mute-audio'],
         windowSize: { width: 640, height: 320 }
       });
 
-      // open the REST API for tabs
-      const client = session.createAPIClient('localhost', process.remoteDebuggingPort);
+      const apiClient = session.createAPIClient('localhost', browser.remoteDebuggingPort);
 
-      const tabs = await client.listTabs();
-      const tab = tabs[0];
-      await client.activateTab(tab.id);
-
-      const dp = await session.openDebuggingProtocol(tab.webSocketDebuggerUrl || '');
-      const appEnv = await ApplicationEnvironment.build(dp, client, server.rootUrl);
+      const appEnv = await ApplicationEnvironment.build(apiClient, session, server.rootUrl);
       await test(appEnv);
     });
   }
