@@ -57,6 +57,10 @@ describe('Service Worker', () => {
 
       await client2.waitForServiceWorkerRegistration();
 
+      const sw = client1.swState.getActive();
+      const controlledClients = sw.controlledClients ? sw.controlledClients.length : 0;
+      expect(controlledClients).to.equal(2);
+
       const navResult = await client2.navigate();
 
       expect(navResult.networkResult.response.fromServiceWorker, '2nd tab with registered service worker should intercept requests').to.be.true;
