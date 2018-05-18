@@ -19,7 +19,7 @@ describe('Service Worker', () => {
       });
       await client.waitForServiceWorkerRegistration();
 
-      const active = await client.swState.getActiveVersion();
+      const active = await client.swState.getActive();
       expect(active.versionId).to.equal('0');
     });
   });
@@ -72,44 +72,44 @@ describe('Service Worker', () => {
     });
   });
 
-  it('active version should not change even after a new worker version is deployed and page is refreshed', async () => {
+  it('active version should only change after skipWaiting', async () => {
     await session.run(async (app) => {
       const client = app.getActiveTabClient();
       await client.navigate();
 
       await client.evaluate(function() {
-        return navigator.serviceWorker.register('/sw.js');
+        return navigator.serviceWorker.register('/sw.js', {
+          scope: '/'
+        });
       });
       await client.waitForServiceWorkerRegistration();
 
-      const active1 = await client.swState.getActiveVersion();
-      expect(active1.versionId).to.equal('0');
+      const swState1 = await client.swState.getActive();
+      expect(swState1.versionId).to.equal('0', 'Should be at version 0');
 
-      app.getTestServer().incrementVersion();
+      await app.getTestServer().incrementVersion();
 
       await client.navigate();
 
       await client.evaluate(function() {
-        return navigator.serviceWorker.register('/sw.js');
+        return navigator.serviceWorker.register('/sw.js', {
+          scope: '/'
+        });
       });
+
       await client.waitForServiceWorkerRegistration();
 
-      const active2 = await client.swState.getActiveVersion();
-      expect(active2.versionId).to.equal('0');
+      await client.swState.waitForInstalled('1');
 
-      const client2 = await app.openAndActivateTab();
+      const swState2 = await client.swState.getActive();
+      expect(swState2.versionId).to.equal('0', 'Should be at version 0 even after 1 installs');
 
-      await client2.navigate();
+      await client.swState.skipWaiting();
 
-      await client2.evaluate(function() {
-        return navigator.serviceWorker.register('/sw.js');
-      });
+      await client.swState.waitForActivated('1');
 
-      await client2.waitForServiceWorkerRegistration();
-
-      const active3 = await client2.swState.getActiveVersion();
-      // Assert that version was actually incremented
-      expect(active3.versionId).to.equal('1');
+      const swState3 = await client.swState.getActive();
+      expect(swState3.versionId).to.equal('1', 'Should be at version 1 after skipWaiting');
     });
-  });
+  }).timeout(4000);;
 });
